@@ -16,30 +16,20 @@ cv::Mat applyLookUpTable(const cv::Mat& image, const cv::Mat& lookup)
 	cv::LUT(image,lookup,result); 	// apply lookup table
 	return result;
 }
-cv::Mat stretchImage(const cv::Mat &image, cv::MatND &hist, int minValue=0)
+cv::Mat stretchImage(const cv::Mat &image, cv::MatND &hist)
 {
-	int imin= 0;
-	for( ; imin < 256; imin++ ) //find the lowest intensity
-	{
-		if (hist.at<float>(imin) > minValue)
-			break;
-	}
-	// find right extremity of the histogram
-	int imax= 255;
-	for( ; imax >= 0; imax-- ) {
-		if (hist.at<float>(imax) > minValue)
-			break;
-	}
 	// create lookup table
 	cv::Mat lookup(1, 256,	CV_8U);
 	// build lookup table
 	for (int i=0; i<256; i++)
 	{
-		// stretch between imin and imax
-		if (i < imin) lookup.at<uchar>(i)= 0;
-		else if (i > imax) lookup.at<uchar>(i)= 255;
-		// linear mapping
-		else lookup.at<uchar>(i)= static_cast<uchar>(255.0*(i-imin)/(imax-imin)+0.5);
+		int sum = 0;
+		for (int j = 0; j < i; j++)
+		{
+			sum += hist.at<float>(j);
+		}
+		int s = round(255*sum/(image.cols*image.rows));
+		lookup.at<uchar>(i)= s;
 	}
 	cv::Mat result = applyLookUpTable(image,lookup);
 	return result;
@@ -84,7 +74,7 @@ cv::Mat intensityIncrease(const cv::Mat &img, int amount)
 {
 	cv::Mat imgCopy;
 	img.copyTo(imgCopy);
-	int r= imgCopy.rows;
+	int r = imgCopy.rows;
 	int c = imgCopy.cols;
 	// for all pixels
 	for (int j=0; j<r; j++)
@@ -163,7 +153,7 @@ int main(int argc, char* argv[])
 
 	// look up table
 	cv::MatND h = getHistogram(res);
-	cv::Mat stretchedImage = stretchImage(res, h, 256);
+	cv::Mat stretchedImage = stretchImage(res, h);
 	cv::Mat hist2 = getHistogramImage(stretchedImage);
 	cv::namedWindow("Histogram after image stretching");
 	cv::imshow("Histogram after image stretching", hist2);
@@ -179,6 +169,10 @@ int main(int argc, char* argv[])
 	cv::namedWindow("Equalizing the image histogram");
 	cv::imshow("Equalizing the image histogram", eqHist);
 
+	cv::Mat hist4 = getHistogramImage(eqHist);
+	cv::namedWindow("Equalizing the image histogram1");
+	cv::imshow("Equalizing the image histogram1", hist4);
+
 	cv::waitKey(0);
 
 	//-------Exercise 3
@@ -189,7 +183,7 @@ int main(int argc, char* argv[])
 			1, -4, 1,
 			0,  1, 0);
 
-//	cout << kernel << endl;
+	//	cout << kernel << endl;
 	int ddepth = -1; //the same as source image
 	cv::filter2D(res, afterKernel, ddepth, kernel, Point(-1,-1), 0.0, BORDER_REPLICATE);
 
